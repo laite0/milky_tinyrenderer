@@ -45,7 +45,7 @@ template <typename T> struct Vec3 {
         T raw[3];
     };
 
-    Vec3() : x(0), y(0), z(0) {}
+    Vec3() : x(), y(), z() {}
     Vec3(T _1, T _2, T _3) : x(_1), y(_2), z(_3) {}
 
     inline Vec3<T> operator +(const Vec3<T>& other) const {
