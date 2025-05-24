@@ -4,6 +4,7 @@
 #include <cassert>
 #include "tgaimage.h"
 #include "model.h"
+#include <functional>
 
 const TGAColor white = {255, 255, 255, 255}; // BGRA order
 const TGAColor green = {0, 255, 0, 255};
@@ -51,7 +52,8 @@ std::tuple<double, double, double> barycentric_coords_2d(int ax, int ay, int bx,
     return {a / all, b / all, g / all};
 }
 
-void triangle(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &framebuffer, const TGAColor& color) {
+void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, int cz, TGAImage &framebuffer,
+              const std::function<const TGAColor(double, double, double)>& color_picker) {
     int xMin = std::min(ax, std::min(bx, cx));
     int xMax = std::max(ax, std::max(bx, cx));
     int yMin = std::min(ay, std::min(by, cy));
@@ -67,12 +69,12 @@ void triangle(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &framebuf
             if (alpha < 0 || beta < 0 || gamma < 0) {
                 continue;
             }
-            framebuffer.set(x, y, color);
+            framebuffer.set(x, y, color_picker(alpha, beta, gamma));
         }
     }
 }
 
-int main(int argc, char **argv) {
+int model_render(int argc, char **argv) {
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0] << " obj/model.obj" << std::endl;
         return 1;
@@ -86,18 +88,77 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < model.numberOfFaces(); i++) {
         std::vector<int> face = model.faceAt(i);
-        Vec3<Vec2i> coords;
+        Vec3<Vec3i> coords;
         for (int j = 0; j < 3; j++) {
             Vec3f v0 = model.vertexAt(face[j]);
-            coords.raw[j] = Vec2i((v0.x + 1.0) * width / 2.0, (v0.y + 1.0) * height / 2.0);
+            coords.raw[j] = Vec3i((v0.x + 1.0) * width / 2.0, (v0.y + 1.0) * height / 2.0, v0.z);
         }
         auto x = coords.x;
-        triangle(coords.x.x, coords.x.y, coords.y.x, coords.y.y, coords.z.x, coords.z.y, framebuffer,
-                 TGAColor(rand()%255, rand()%255, rand()%255, 255));
+        auto color = TGAColor(rand()%255, rand()%255, rand()%255, 255);
+        triangle(coords.x.x, coords.x.y, coords.x.z,
+                 coords.y.x, coords.y.y, coords.y.z,
+                 coords.z.x, coords.z.y, coords.z.z,
+                 framebuffer,
+                 [&color] (double alpha, double beta, double gamma) { return color; });
     }
 
     framebuffer.flip_vertically();
 
-    framebuffer.write_tga_file("wire_frame_attempt.tga");
+    framebuffer.write_tga_file("model_render.tga");
     return 0;
+}
+
+int grayscale_barycentric_triangle(int argc, char** argv) {
+    constexpr int width  = 64;
+    constexpr int height = 64;
+    TGAImage framebuffer(width, height, TGAImage::RGB);
+
+    int ax = 17, ay =  4, az =  13;
+    int bx = 55, by = 39, bz = 128;
+    int cx = 23, cy = 59, cz = 255;
+
+    triangle(ax, ay, az, bx, by, bz, cx, cy, cz, framebuffer,
+             [az, bz, cz] (double alpha, double beta, double gamma) {
+                 auto z = static_cast<unsigned char>(alpha * az + beta * bz + gamma * cz);
+                 return TGAColor(z, z, z, 0);
+    });
+
+    framebuffer.write_tga_file("grayscale_barycentric_triangle.tga");
+    return 0;
+}
+
+int rgb_barycentric_triangle(int argc, char** argv) {
+    constexpr int width  = 64;
+    constexpr int height = 64;
+    TGAImage framebuffer(width, height, TGAImage::RGB);
+
+    int ax = 17, ay =  4, az =  13;
+    int bx = 55, by = 39, bz = 128;
+    int cx = 23, cy = 59, cz = 255;
+
+    triangle(ax, ay, az, bx, by, bz, cx, cy, cz, framebuffer,
+             [] (double alpha, double beta, double gamma) { return TGAColor(alpha * 255, beta * 255, gamma * 255, 0); });
+
+    framebuffer.write_tga_file("rgb_barycentric_triangle.tga");
+    return 0;
+}
+
+int basic_render(int argc, char** argv) {
+    constexpr int width  = 64;
+    constexpr int height = 64;
+    TGAImage framebuffer(width, height, TGAImage::RGB);
+
+    int ax =  7, ay =  3;
+    int bx = 12, by = 37;
+    int cx = 62, cy = 53;
+
+    framebuffer.set(ax, ay, white);
+    framebuffer.set(bx, by, white);
+    framebuffer.set(cx, cy, white);
+
+    framebuffer.write_tga_file("basic_render.tga");
+    return 0;
+}
+int main(int argc, char **argv) {
+    return model_render(argc, argv);
 }
