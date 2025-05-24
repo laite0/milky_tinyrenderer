@@ -74,6 +74,31 @@ void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, in
     }
 }
 
+void triangle_with_z(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, int cz,
+                     TGAImage &framebuffer, TGAImage &zbuffer,
+                     const std::function<const TGAColor(double, double, double)>& color_picker) {
+    int xMin = std::min(ax, std::min(bx, cx));
+    int xMax = std::max(ax, std::max(bx, cx));
+    int yMin = std::min(ay, std::min(by, cy));
+    int yMax = std::max(ay, std::max(by, cy));
+
+    double area = signed_triangle_area(ax, ay, bx, by, cx, cy);
+    // we removed back face culling because we want it be order independent
+
+#pragma omp parallel for
+    for (int x = xMin; x <= xMax; x++) {
+        for (int y = yMin; y < yMax; y++) {
+            auto [alpha, beta, gamma] = barycentric_coords_2d(ax, ay, bx, by, cx, cy, x, y, area);
+            auto z = static_cast<unsigned char>(alpha * az + beta * bz + gamma * cz);
+            if (alpha < 0 || beta < 0 || gamma < 0 || zbuffer.get(x, y).r >= z) {
+                continue;
+            }
+            zbuffer.set(x, y, {z});
+            framebuffer.set(x, y, color_picker(alpha, beta, gamma));
+        }
+    }
+}
+
 int model_render(int argc, char **argv) {
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0] << " obj/model.obj" << std::endl;
@@ -93,7 +118,7 @@ int model_render(int argc, char **argv) {
             Vec3f v0 = model.vertexAt(face[j]);
             coords.raw[j] = Vec3i((v0.x + 1.0) * width / 2.0, (v0.y + 1.0) * height / 2.0, v0.z);
         }
-        auto x = coords.x;
+
         auto color = TGAColor(rand()%255, rand()%255, rand()%255, 255);
         triangle(coords.x.x, coords.x.y, coords.x.z,
                  coords.y.x, coords.y.y, coords.y.z,
@@ -105,6 +130,49 @@ int model_render(int argc, char **argv) {
     framebuffer.flip_vertically();
 
     framebuffer.write_tga_file("model_render.tga");
+    return 0;
+}
+
+std::tuple<int,int,int> project(Vec3f v, const int width, const int height) {
+    return { (v.x + 1.0) * width/2, (v.y + 1.0) * height/2, (v.z + 1.0) * 255./2 };
+}
+
+int model_render_in_z(int argc, char **argv) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " obj/model.obj" << std::endl;
+        return 1;
+    }
+
+    constexpr int width = 800;
+    constexpr int height = 800;
+    Model model(argv[1]);
+    TGAImage framebuffer(width, height, TGAImage::RGB);
+    TGAImage     zbuffer(width, height, TGAImage::RGB);
+
+    for (int i = 0; i < model.numberOfFaces(); i++) {
+        std::vector<int> face = model.faceAt(i);
+        Vec3<Vec3i> coords;
+        for (int j = 0; j < 3; j++) {
+            Vec3f v0 = model.vertexAt(face[j]);
+            auto [x, y, z] = project(v0, width, height);
+            coords.raw[j] = Vec3i(x, y, z);
+        }
+
+        auto color = TGAColor(rand()%255, rand()%255, rand()%255, 255);
+        triangle_with_z(coords.x.x, coords.x.y, coords.x.z,
+                 coords.y.x, coords.y.y, coords.y.z,
+                 coords.z.x, coords.z.y, coords.z.z,
+                 framebuffer, zbuffer,
+                 [&color] (double alpha, double beta, double gamma) { return color; });
+    }
+
+    framebuffer.flip_vertically();
+
+    framebuffer.write_tga_file("model_render_z_buffered.tga");
+
+    zbuffer.flip_vertically();
+
+    zbuffer.write_tga_file("model_render_z_buffer.tga");
     return 0;
 }
 
@@ -160,5 +228,5 @@ int basic_render(int argc, char** argv) {
     return 0;
 }
 int main(int argc, char **argv) {
-    return model_render(argc, argv);
+    return model_render_in_z(argc, argv);
 }
