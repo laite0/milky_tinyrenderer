@@ -21,9 +21,9 @@ Model::Model(const char *filename) : vectices(), faces() {
         if (!line.compare(0, 2, "v ")) {
             iss >> trash;
             Vec3f v;
-            for (float &i: v.raw) {
-                iss >> i;
-            }
+            iss >> v.x;
+            iss >> v.y;
+            iss >> v.z;
             vectices.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
             std::vector<int> f;
