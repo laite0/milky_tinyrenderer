@@ -1,105 +1,272 @@
-#ifndef __VEC_H__
-#define __VEC_H__
+#ifndef MILKY_TINYRENDERER_VEC_H
+#define MILKY_TINYRENDERER_VEC_H
 
 #include <cmath>
 #include <ostream>
-#include <concepts>
+#include <cassert>
+#include "constriants.h"
+#include "matrix.h"
 
-template <typename T> concept Numeric = std::integral<T> || std::floating_point<T>;
+template <typename V, Numeric T, size_t N> class BaseVec {
+    virtual std::array<T, N> raw_data() const = 0;
 
-template <Numeric T> struct Vec2 {
-    union {
-        struct {
-            T u;
-            T v;
-        };
-        struct {
-            T x;
-            T y;
-        };
-        T raw[2];
-    };
+public:
+    virtual ~BaseVec() = default;
 
-    Vec2() : u(0), v(0) {}
-    Vec2(T _1, T _2) : u(_1), v(_2) {}
-
-    inline Vec2 operator +(const Vec2& other) const {
-        return Vec2(u + other.u, v + other.v);
+    V operator+(V const& other) const {
+        V const& self = static_cast<V const&>(*this);
+        V result;
+        for (size_t i = 0; i < N; ++i) {
+            result[i] = self[i] + other[i];
+        }
+        return result;
+    }
+    
+    V operator-(V const& other) const {
+        V const& self = static_cast<V const&>(*this);
+        V result;
+        for (size_t i = 0; i < N; ++i) {
+            result[i] = self[i] - other[i];
+        }
+        return result;
+    }
+    
+    template<Numeric U> V operator *(const U& n) const {
+        V const& self = static_cast<V const&>(*this);
+        V result;
+        for (size_t i = 0; i < N; ++i) {
+            result[i] = self[i] * n;
+        }
+        return result;
+    }
+    
+    template<Numeric U> V operator /(const U& n) const {
+        V const& self = static_cast<V const&>(*this);
+        V result;
+        for (size_t i = 0; i < N; ++i) {
+            result[i] = self[i] / n;
+        }
+        return result;
+    }
+    
+    V& operator+=(V const& other) {
+        V& self = static_cast<V&>(*this);
+        for (size_t i = 0; i < N; ++i) {
+            self[i] += other[i];
+        }
+        return self;
+    }
+    
+    V& operator-=(V const& other) {
+        V& self = static_cast<V&>(*this);
+        for (size_t i = 0; i < N; ++i) {
+            self[i] -= other[i];
+        }
+        return self;
+    }
+    
+    V& operator*=(T scalar) {
+        V& self = static_cast<V&>(*this);
+        for (size_t i = 0; i < N; ++i) {
+            self[i] *= scalar;
+        }
+        return self;
+    }
+    
+    V& operator/=(T scalar) {
+        V& self = static_cast<V&>(*this);
+        for (size_t i = 0; i < N; ++i) {
+            self[i] /= scalar;
+        }
+        return self;
+    }
+    
+    V operator-() const {
+        V const& self = static_cast<V const&>(*this);
+        V result;
+        for (size_t i = 0; i < N; ++i) {
+            result[i] = -self[i];
+        }
+        return result;
     }
 
-    inline Vec2 operator -(const Vec2& other) const {
-        return Vec2(u - other.u, v - other.v);
+    T dot(V const& other) const {
+        V const& self = static_cast<V const&>(*this);
+        T result = 0;
+        for (size_t i = 0; i < N; ++i) {
+            result += self[i] * other[i];
+        }
+        return result;
     }
 
-    inline Vec2 operator *(float f) const {
-        return Vec2(u * f, v * f);
+    T norm() const {
+        V const& self = static_cast<V const&>(*this);
+        return std::sqrt(dot(self));
     }
 
-    template <typename> friend std::ostream& operator<<(std::ostream& stream, Vec2& v);
+    V normalized() const {
+        return *this / norm();
+    }
+
+    T length() const {
+        return std::sqrt(static_cast<V const&>(*this).dot(static_cast<V const&>(*this)));
+    }
+
+    VecM<T, N> column_into() const {
+        V const& self = static_cast<V const&>(*this);
+        std::array<std::array<T, 1>, N> result;
+        for (size_t i = N; i--;) {
+            result[i][0] = self[i];
+        }
+        return VecM<T, N>(result);
+    }
+
+    RowVecM<T, N> row_into() const {
+        RowVecM<T, N> m{};
+        m[0] = raw_data();
+
+        return m;
+    }
 };
 
-template <Numeric T> struct Vec3 {
-    T x;
-    T y;
-    T z;
 
+template <Numeric T, size_t N> class Vec final : public BaseVec<Vec<T, N>, T, N> {
+    std::array<T, N> data{0};
 
-    Vec3() : x(), y(), z() {}
-    Vec3(T _1, T _2, T _3) : x(_1), y(_2), z(_3) {}
-
-    inline Vec3 operator +(const Vec3& other) const {
-        return Vec3(x + other.x, y + other.y, z + other.z);
+    std::array<T, N> raw_data() const override {
+        return data;
     }
 
-    inline Vec3 operator -(const Vec3& other) const {
-        return Vec3(x - other.x, y - other.y, z - other.z);
+public:
+    Vec() = default;
+
+    explicit Vec(std::array<T, N> brace) {
+        std::copy(brace.begin(), brace.end(), data);
     }
 
-    inline Vec3 operator-() const {
-        return Vec3(-x, -y, -z);
+    T& operator[](size_t i) {
+        return data[i];
     }
 
-    inline Vec3 operator *(float f) const {
-        return Vec2<T>(x * f, y * f, z * f);
+    T const& operator[](size_t i) const {
+        return data[i];
+    }
+};
+
+template<Numeric T> class Vec<T, 2> final : public BaseVec<Vec<T, 2>, T, 2> {
+    std::array<T, 2> raw_data() const override {
+        return data;
     }
 
-    inline T operator ^(const Vec3& other) const {
-        return x * other.x + y * other.y + z * other.z;
+public:
+    union {
+        std::array<T, 2> data;
+        struct {
+            T x, y;
+        };
+    };
+
+    Vec() : data{0} {}
+
+    Vec(T x, T y) : x(x), y(y) {}
+
+    explicit Vec(std::array<T, 2> brace): data(brace) {}
+
+    T& operator[](size_t i) {
+        assert(i < 2);
+        return data[i];
     }
 
-    inline Vec3 normalize() {
-        auto length = sqrt(x * x + y * y + z * z);
-        return Vec3(x / length, y / length, z / length);
+    const T& operator[](size_t i) const {
+        assert(i < 2);
+        return data[i];
+    }
+};
+
+template<Numeric T>
+class Vec<T, 3> final :
+public BaseVec<Vec<T, 3>, T, 3> {
+    std::array<T, 3> raw_data() const override {
+        return data;
     }
 
-    inline T dot(const Vec3& other) {
-        return x * other.x + y * other.y + z * other.z;
+public:
+    union {
+        std::array<T, 3> data;
+        struct {
+            T x, y, z;
+        };
+    };
+
+    Vec() : data{0} {}
+
+    Vec(T x, T y, T z) : x(x), y(y), z(z) {}
+
+    explicit Vec(std::array<T, 3> brace): data(brace) {}
+
+    T& operator[](size_t i) {
+        assert(i < 3);
+        return data[i];
     }
 
-    inline Vec3 cross(const Vec3& other) {
-        return Vec3(
+    const T& operator[](size_t i) const {
+        assert(i < 3);
+        return data[i];
+    }
+
+    Vec cross(const Vec& other) const {
+        return {
             y * other.z - z * other.y,
             z * other.x - x * other.z,
             x * other.y - y * other.x
-            );
+        };
     }
 
-    template <typename> friend std::ostream& operator<<(std::ostream& stream, Vec3& v);
+    struct View3 {
+        T x, y, z;
+    };
+    View3 view() {
+        return {x, y, z};
+    }
 };
 
-using Vec2f = Vec2<float>;
-using Vec2i = Vec2<int>;
-using Vec3f = Vec3<float>;
-using Vec3i = Vec3<int>;
+template<Numeric T> class Vec<T, 4> final : public BaseVec<Vec<T, 4>, T, 4> {
+    std::array<T, 4> raw_data() const override {
+        return data;
+    }
 
-template <typename T> std::ostream& operator<<(std::ostream& stream, Vec2<T>& v) {
-    stream << "(" << v.x << ", " << v.y << ")\n";
-    return stream;
-}
+public:
+    union {
+        std::array<T, 4> data;
+        struct {
+            T x, y, z, w;
+        };
+    };
 
-template <typename T> std::ostream& operator<<(std::ostream& stream, Vec3<T>& v) {
-    stream << "(" << v.x << ", " << v.y << ", " << v.z << ")\n";
-    return stream;
-}
+    Vec() : data{0} {}
+
+    Vec(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {}
+
+    explicit Vec(std::array<T, 4> brace): data(brace) {}
+
+    T& operator[](size_t i) {
+        assert(i < 4);
+        return data[i];
+    }
+
+    const T& operator[](size_t i) const {
+        assert(i < 4);
+        return data[i];
+    }
+};
+
+using Vec2f = Vec<float, 2>;
+using Vec2i = Vec<int, 2>;
+using Vec3f = Vec<float, 3>;
+using Vec3d = Vec<double, 3>;
+using Vec3i = Vec<int, 3>;
+using Vec4f = Vec<float, 4>;
+using Vec4d = Vec<double, 4>;
+using Vec4i = Vec<int, 4>;
 
 #endif

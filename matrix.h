@@ -1,36 +1,46 @@
 #ifndef MILKY_TINYRENDERER_MATRIX_H
 #define MILKY_TINYRENDERER_MATRIX_H
 
-#include <vector>
+#include <array>
 #include <ostream>
-#include "vec.h"
+#include "constriants.h"
 
-const int DEFAULT_DIMENSIONS=4;
+constexpr int DEFAULT_DIMENSIONS=4;
 
-class Matrix {
-    std::vector<std::vector<float>> m;
-    int rows, cols;
+template<Numeric T, size_t R = DEFAULT_DIMENSIONS, size_t C = DEFAULT_DIMENSIONS> class Matrix {
+    std::array<std::array<T, C>, R> m;
 public:
-    Matrix(int r=DEFAULT_DIMENSIONS, int c=DEFAULT_DIMENSIONS);
+    Matrix();
 
-    inline int n_rows() const;
+    explicit Matrix(std::array<std::array<T, C>, R> const& initializer);
 
-    inline int n_cols() const;
+    [[nodiscard]] static size_t n_rows();
 
-    static Matrix identity(int dimensions);
+    [[nodiscard]] static size_t n_cols();
 
-    std::vector<float>& operator[](const int i);
+    template<size_t N> static Matrix<T, N, N> identity();
 
-    Matrix operator*(const Matrix& a) const;
+    std::array<T, C>& operator[](size_t i);
 
-    Matrix transpose();
+    const std::array<T, C>& operator[](size_t i) const;
 
-    Matrix inverse();
+    template<size_t C2> Matrix<T, R, C2> operator*(const Matrix<T, C, C2>& a) const;
 
-    friend std::ostream& operator<<(std::ostream& s, Matrix& m);
+    Matrix<T, C, R> transpose();
+
+    Matrix inverse() requires(R == C);
+
+    friend std::ostream& operator<<<>(std::ostream& s, Matrix& m);
 };
 
-inline std::ostream& operator<<(std::ostream& s, Matrix& m) {
+using Mat3x3f = Matrix<float, 3, 3>;
+using Mat4x4f = Matrix<float>;
+template<Numeric T, size_t N> using VecM = Matrix<T, N, 1>;
+template<size_t N> using VecMf = VecM<float, N>;
+template<Numeric T, size_t N> using RowVecM = Matrix<T, 1, N>;
+template<size_t N> using RowVecMf = RowVecM<float, N>;
+
+template<Numeric T, size_t R, size_t C> inline std::ostream& operator<<(std::ostream& s, Matrix<T, R, C>& m) {
     for (int i=0; i<m.n_rows(); i++)  {
         for (int j=0; j<m.n_cols(); j++) {
             s << m[i][j];
@@ -40,5 +50,11 @@ inline std::ostream& operator<<(std::ostream& s, Matrix& m) {
     }
     return s;
 }
+
+template <Numeric T, size_t R, size_t C> Matrix<T, R, C> operator*(T scalar, const Matrix<T, R, C>& mat) {
+    return mat * scalar;
+}
+
+#include "matrix.cpp"
 
 #endif //MILKY_TINYRENDERER_MATRIX_H

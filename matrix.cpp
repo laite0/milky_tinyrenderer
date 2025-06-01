@@ -1,90 +1,103 @@
-#include <cassert>
+#ifndef MILKY_TINYRENDERER_MATRIX_CPP
+#define MILKY_TINYRENDERER_MATRIX_CPP
+
 #include "matrix.h"
 
-Matrix::Matrix(int r, int c) : m(std::vector(r, std::vector(c, 0.f))), rows(r), cols(c) {}
+template<Numeric T, size_t R, size_t C> Matrix<T, R, C>::Matrix()
+: m({}) {}
 
-int Matrix::n_rows() const {
-    return rows;
+template<Numeric T, size_t R, size_t C> Matrix<T, R, C>::Matrix(std::array<std::array<T, C>, R> const& initializer)
+: m(initializer) {}
+
+template<Numeric T, size_t R, size_t C> size_t Matrix<T, R, C>::n_rows() {
+    return R;
 }
 
-int Matrix::n_cols() const {
-    return cols;
+template<Numeric T, size_t R, size_t C> size_t Matrix<T, R, C>::n_cols() {
+    return C;
 }
 
-Matrix Matrix::identity(int dimensions) {
-    Matrix E(dimensions, dimensions);
-    for (int i = 0; i < dimensions; i++) {
-        for (int j = 0; j < dimensions; j++) {
-            E[i][j] = (i == j ? 1.f : 0.f);
+template<Numeric T, size_t R, size_t C> template<size_t N> Matrix<T, N, N> Matrix<T, R, C>::identity() {
+    Matrix<T, N, N> E{};
+    const T id = T(1);
+    const T zero = T(0);
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            auto v = (i == j ? id : zero);
+            T& ok = E[i][j];
+            ok = v;
         }
     }
     return E;
 }
 
-std::vector<float> &Matrix::operator[](const int i) {
-    assert(i >= 0 && i < rows);
+template<Numeric T, size_t R, size_t C> std::array<T, C> & Matrix<T, R, C>::operator[](size_t i) {
     return m[i];
 }
 
-Matrix Matrix::operator*(const Matrix &a) const {
-    assert(cols == a.rows);
-    Matrix result(rows, a.cols);
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < a.cols; j++) {
-            result.m[i][j] = 0.f;
-            for (int k = 0; k < cols; k++) {
-                result.m[i][j] += m[i][k] * a.m[k][j];
+template<Numeric T, size_t R, size_t C> const std::array<T, C>& Matrix<T, R, C>::operator[](size_t i) const {
+    return m[i];
+}
+
+template<Numeric T, size_t R, size_t C> template<size_t C2> Matrix<T, R, C2> Matrix<T, R, C>::operator*(const Matrix<T, C, C2> &a) const {
+    Matrix<T, R, C2> result{};
+    for (int i = 0; i < R; i++) {
+        for (int j = 0; j < C2; j++) {
+            result[i][j] = T(0);
+            for (int k = 0; k < C; k++) {
+                result[i][j] += m[i][k] * a[k][j];
             }
         }
     }
     return result;
 }
 
-Matrix Matrix::transpose() {
-    Matrix result(cols, rows);
-    for (int i = 0; i < rows; i++)
-        for (int j = 0; j < cols; j++)
+template<Numeric T, size_t R, size_t C> Matrix<T, C, R> Matrix<T, R, C>::transpose() {
+    Matrix<T, C, R> result{};
+    for (int i = 0; i < R; i++)
+        for (int j = 0; j < C; j++)
             result[j][i] = m[i][j];
     return result;
 }
 
-Matrix Matrix::inverse() {
-    assert(rows == cols);
+template<Numeric T, size_t R, size_t C> Matrix<T, R, C> Matrix<T, R, C>::inverse() requires (R == C) {
     // augmenting the square matrix with the identity matrix of the same dimensions A => [AI]
-    Matrix result(rows, cols * 2);
-    for (int i = 0; i < rows; i++)
-        for (int j = 0; j < cols; j++)
+    Matrix result(R, C * 2);
+    for (int i = 0; i < R; i++)
+        for (int j = 0; j < C; j++)
             result[i][j] = m[i][j];
-    for (int i = 0; i < rows; i++)
-        result[i][i + cols] = 1;
+    for (int i = 0; i < R; i++)
+        result[i][i + C] = 1;
     // first pass
-    for (int i = 0; i < rows - 1; i++) {
+    for (int i = 0; i < R - 1; i++) {
         // normalize the first row
-        for (int j = result.cols - 1; j >= 0; j--)
+        for (int j = C - 1; j >= 0; --j)
             result[i][j] /= result[i][i];
-        for (int k = i + 1; k < rows; k++) {
-            float coeff = result[k][i];
-            for (int j = 0; j < result.cols; j++) {
+        for (int k = i + 1; k < R; k++) {
+            T coeff = result[k][i];
+            for (int j = 0; j < C; j++) {
                 result[k][j] -= result[i][j] * coeff;
             }
         }
     }
     // normalize the last row
-    for (int j = result.cols - 1; j >= rows - 1; j--)
-        result[rows - 1][j] /= result[rows - 1][rows - 1];
+    for (int j = C - 1; j >= R - 1; --j)
+        result[R - 1][j] /= result[R - 1][R - 1];
     // second pass
-    for (int i = rows - 1; i > 0; i--) {
-        for (int k = i - 1; k >= 0; k--) {
-            float coeff = result[k][i];
-            for (int j = 0; j < result.cols; j++) {
+    for (size_t i = R - 1; i > 0; --i) {
+        for (size_t k = i - 1; k != static_cast<size_t>(-1); --k) {
+            T coeff = result[k][i];
+            for (int j = 0; j < C; j++) {
                 result[k][j] -= result[i][j] * coeff;
             }
         }
     }
     // cut the identity matrix back
-    Matrix truncate(rows, cols);
-    for (int i = 0; i < rows; i++)
-        for (int j = 0; j < cols; j++)
-            truncate[i][j] = result[i][j + cols];
+    Matrix truncate(R, C);
+    for (int i = 0; i < R; i++)
+        for (int j = 0; j < C; j++)
+            truncate[i][j] = result[i][j + C];
     return truncate;
 }
+
+#endif

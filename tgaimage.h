@@ -35,7 +35,7 @@ struct TGAColor {
 	TGAColor() : val(0), bytespp(1) {
 	}
 
-	TGAColor(unsigned char R, unsigned char G, unsigned char B, unsigned char A) : b(B), g(G), r(R), a(A), bytespp(4) {
+	TGAColor(unsigned char R, unsigned char G, unsigned char B, unsigned char A=255) : b(B), g(G), r(R), a(A), bytespp(4) {
 	}
 
     TGAColor(unsigned char g) : b(g), g(g), r(g), a(0), bytespp(4) {
@@ -62,6 +62,13 @@ struct TGAColor {
 		}
 		return *this;
 	}
+
+	TGAColor operator *(float intensity) const {
+		TGAColor res = *this;
+		intensity = (intensity>1.f?1.f:(intensity<0.f?0.f:intensity));
+		for (int i=0; i<4; i++) res.raw[i] = raw[i]*intensity;
+		return res;
+	}
 };
 
 
@@ -87,13 +94,13 @@ public:
 	bool flip_horizontally();
 	bool flip_vertically();
 	bool scale(int w, int h);
-	TGAColor get(int x, int y);
+	TGAColor get(int x, int y) const;
 	bool set(int x, int y, TGAColor c);
 	~TGAImage();
 	TGAImage & operator =(const TGAImage &img);
-	int get_width();
-	int get_height();
-	int get_bytespp();
+	[[nodiscard]] int get_width() const;
+	[[nodiscard]] int get_height() const;
+	[[nodiscard]] int get_bytespp() const;
 	unsigned char *buffer();
 	void clear();
 };
