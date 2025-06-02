@@ -103,8 +103,8 @@ inline void triangle_with_z(int ax, int ay, int az, int bx, int by, int bz, int 
 }
 
 inline void shading_triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy, int cz,
-                            TGAImage& framebuffer, TGAImage& zbuffer, Shader const& shader,
-                            UniformData const& uniforms, VertexData const& vertex_data) {
+                            Model const& model, TGAImage& framebuffer, TGAImage& zbuffer, Shader const& shader,
+                            VertexData const& vertex_data) {
     int xMin = std::min(ax, std::min(bx, cx));
     int xMax = std::max(ax, std::max(bx, cx));
     int yMin = std::min(ay, std::min(by, cy));
@@ -122,7 +122,7 @@ inline void shading_triangle(int ax, int ay, int az, int bx, int by, int bz, int
             if (alpha < 0 || beta < 0 || gamma < 0 || zbuffer.get(x, y).r >= z) {
                 continue;
             }
-            auto vals = shader.eval_fragment(uniforms, vertex_data, abg);
+            auto vals = shader.eval_fragment(model, vertex_data, abg);
             if (vals.keep) {
                 zbuffer.set(x, y, {z});
                 framebuffer.set(x, y, vals.color);

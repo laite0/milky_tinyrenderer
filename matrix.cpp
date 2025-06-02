@@ -62,7 +62,7 @@ template<Numeric T, size_t R, size_t C> Matrix<T, C, R> Matrix<T, R, C>::transpo
 
 template<Numeric T, size_t R, size_t C> Matrix<T, R, C> Matrix<T, R, C>::inverse() requires (R == C) {
     // augmenting the square matrix with the identity matrix of the same dimensions A => [AI]
-    Matrix result(R, C * 2);
+    Matrix<T, R, C * 2> result{};
     for (int i = 0; i < R; i++)
         for (int j = 0; j < C; j++)
             result[i][j] = m[i][j];
@@ -93,7 +93,7 @@ template<Numeric T, size_t R, size_t C> Matrix<T, R, C> Matrix<T, R, C>::inverse
         }
     }
     // cut the identity matrix back
-    Matrix truncate(R, C);
+    Matrix<T, R, C> truncate;
     for (int i = 0; i < R; i++)
         for (int j = 0; j < C; j++)
             truncate[i][j] = result[i][j + C];

@@ -79,12 +79,12 @@ Vec3f Model::vertex_at(size_t iface, size_t nth_vertex) const {
 }
 
 TGAColor Model::diffuse_at(const Vec2f &uvf) const {
-    Vec2i uv(static_cast<int>(uvf.x) *diffusemap.get_width(), static_cast<int>(uvf.y) *diffusemap.get_height());
+    Vec2i uv(uvf.x * diffusemap.get_width(), uvf.y * diffusemap.get_height());
     return diffusemap.get(uv.x, uv.y);
 }
 
 Vec3f Model::normal_at(const Vec2f &uvf) const {
-    Vec2i uv(static_cast<int>(uvf.x) *normalmap.get_width(), static_cast<int>(uvf.y) *normalmap.get_height());
+    Vec2i uv(uvf.x *normalmap.get_width(), uvf.y * normalmap.get_height());
     TGAColor c = normalmap.get(uv.x, uv.y);
     Vec3f res;
     for (int i=0; i<3; i++)

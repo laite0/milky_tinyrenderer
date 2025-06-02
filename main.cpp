@@ -161,12 +161,14 @@ int model_render_perspective_textured(int argc, char **argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
     TGAImage     zbuffer(width, height, TGAImage::RGB);
 
-    auto mvp = viewport * perspective * view;
+    auto mvpscr = viewport * perspective * view;
+    auto mvp = perspective * view;
 
-    ToonShader shader;
-    UniformData uniforms{
-        {Vec3f(1, 1, 0)}
-    };
+    PhongShader shader;
+    shader.lightDirection = Vec3f(1, 1, 0);
+    shader.mvp = mvp;
+    shader.mvp_inv = mvp.inverse().transpose();
+    shader.cam_pos = camPos;
     for (int face_id = 0; face_id < model.number_of_faces(); face_id++) {
         std::vector<size_t> face = model.face_at(face_id);
         std::array<Vec3i, 3> coords;
@@ -174,24 +176,24 @@ int model_render_perspective_textured(int argc, char **argv) {
             {Vec3f(1, 1, 1)}
         };
         for (int j = 0; j < 3; j++) {
-            auto manu_coord = shader.eval_vertex(model, uniforms, face_id, j, vd);
-            auto [x, y, z] = transform(manu_coord, mvp).view();
+            auto manu_coord = shader.eval_vertex(model, face_id, j, vd);
+            auto [x, y, z] = transform(manu_coord, mvpscr).view();
             coords[j] = Vec3i(x, y, z);
         }
 
         shading_triangle(coords[0].x, coords[0].y, coords[0].z,
                         coords[1].x, coords[1].y, coords[1].z,
                         coords[2].x, coords[2].y, coords[2].z,
-                        framebuffer, zbuffer, shader, uniforms, vd);
+                        model, framebuffer, zbuffer, shader, vd);
     }
 
     framebuffer.flip_vertically();
 
-    framebuffer.write_tga_file("render_textured_toon.tga");
+    framebuffer.write_tga_file("render_textured_uv_specular.tga");
 
     zbuffer.flip_vertically();
 
-    zbuffer.write_tga_file("render_textured_z_toon.tga");
+    zbuffer.write_tga_file("render_textured_z_uv_specular.tga");
     return 0;
 }
 
